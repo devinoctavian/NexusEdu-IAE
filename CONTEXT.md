@@ -6,15 +6,30 @@
 **Institusi:** Telkom University — Program Studi Sistem Informasi
 **Semester:** Aktif
 
-## Scope Tugas
+## Scope Tugas (Dinilai)
+
 Mempraktikkan dan mendokumentasikan perancangan API dengan arsitektur SOA berbasis web
 yang diintegrasikan melalui Enterprise Service Bus (ESB).
 
-Tidak diperlukan implementasi backend yang berjalan. Deliverable adalah **desain dan dokumentasi API**:
+Untuk **penilaian tugas**, deliverable minimum adalah **desain dan dokumentasi API**:
 - OpenAPI 3.1 YAML per service
 - WSDL untuk legacy SOAP service
 - ESB routing table dan transformation rules
 - Architecture diagrams dan sequence diagrams
+
+## Scope Project (Tujuan Devin, Melebihi Minimum Tugas)
+
+Project ini dibangun **sampai ke implementasi kode dan database yang benar-benar jalan**, bukan
+cuma dokumentasi di atas kertas. Ini keputusan sadar untuk menjadikan NexusEdu sebagai portfolio
+project, bukan sekadar artefak yang dikumpulkan lalu tidak pernah dipakai lagi.
+
+Konsekuensi praktis: semua dokumen scope-related di project ini (AGENTS.md, ARCHITECTURE.md,
+DESIGN.md) ditulis dengan asumsi kode akan benar-benar di-build — bukan cuma didiagramkan.
+Lihat ADR-009 di `docs/ARCHITECTURE.md` untuk rationale lengkap.
+
+**Yang tidak berubah:** deliverable yang dinilai dosen tetap 12 item di atas (dokumentasi/desain).
+Implementasi kode adalah tambahan di luar rubrik penilaian, dikerjakan karena nilai jangka panjang
+buat Devin sendiri, bukan syarat kelulusan tugas ini.
 
 ## Constraints
 
@@ -74,9 +89,25 @@ A sequence diagram is acceptable if it shows:
 - Conditional branches (success/failure)
 - Async arrows for queue publish
 
+An endpoint is fully **implemented** (beyond just documented) when it additionally has:
+1. Prisma model + migration applied for any new data it reads/writes
+2. Zod validation schema matching the documented request body
+3. Controller returns the exact envelope shape from CONVENTIONS.md — no shortcuts during dev
+4. At least one happy-path test and one error-path test (Vitest + Supertest)
+5. Manually verified through the ESB gateway, not just by hitting the service port directly
+
 ## Out of Scope
-- Database schema design (services are black boxes)
-- CI/CD pipeline
-- Containerization (Docker/K8s)
-- Load balancing / service discovery
-- Actual code implementation
+
+Tetap di luar scope (baik untuk penilaian maupun untuk project penuh — tidak relevan untuk skala ini):
+- CI/CD pipeline otomatis (GitHub Actions, dst.)
+- Container orchestration produksi (Kubernetes) — `docker-compose.yml` untuk Postgres+RabbitMQ
+  lokal SUDAH dalam scope (lihat ARCHITECTURE.md → Repository Structure), tapi orkestrasi skala
+  produksi tidak
+- Load balancing / service discovery otomatis (Consul, etc.) — tidak relevan di skala ~10rb user
+  akademik yang disimulasikan untuk tugas ini
+- Deployment ke cloud production (Railway/Vercel/AWS) — local dev environment sudah cukup untuk
+  tujuan tugas + portfolio; deploy publik adalah keputusan terpisah kalau Devin mau lanjut nanti
+
+**Catatan:** "Database schema design" dan "Actual code implementation" SEBELUMNYA tercantum di sini
+sebagai out-of-scope. Itu sudah tidak berlaku — lihat "Scope Project" di atas. Keduanya sekarang
+in-scope karena keputusan untuk membangun NexusEdu sampai implementasi penuh.

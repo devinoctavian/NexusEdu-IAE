@@ -2,6 +2,8 @@
 
 ## Stack
 
+### Architecture / Protocol Layer
+
 | Layer | Technology |
 |-------|-----------|
 | ESB Pattern | Apache Camel (conceptual) / WSO2 ESB |
@@ -11,6 +13,32 @@
 | Auth | JWT Bearer (REST) · WS-Security UsernameToken (SOAP) |
 | API Docs | OpenAPI 3.1 YAML · WSDL 2.0 |
 | Versioning | URI: `/api/v1/` |
+
+### Application Stack
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Backend Runtime | Node.js (LTS) + Express | Used identically across all 6 services |
+| Frontend | React (Vite) | Same toolchain as GymTrack Dashboard |
+| Styling | Tailwind CSS | Tokens sourced from `DESIGN.md` — see [[DESIGN]] |
+| Database | PostgreSQL | Hosted via Supabase, one logical `schema` per service |
+| ORM | Prisma | See ADR-006 for rationale vs Drizzle |
+| Message Broker | RabbitMQ (AMQP) | Used only by notification-service consumer + ESB producer |
+
+### Backend Toolkit (per-service dependencies)
+
+| Concern | Package | Used in |
+|---------|---------|---------|
+| Validation | `zod` | All services — validate request body before hitting Prisma |
+| Auth (issue/verify) | `jsonwebtoken`, `bcrypt` | auth-service primarily; `jsonwebtoken` verify also at ESB |
+| Security middleware | `helmet`, `cors`, `express-rate-limit` | ESB gateway layer |
+| SOAP server | `strong-soap` | student-affairs-service only |
+| XML↔JSON transform | `xml2js` or `fast-xml-parser` | ESB transformation layer |
+| AMQP client | `amqplib` | ESB (producer) + notification-service (consumer) |
+| Logging | `pino` + `pino-http` | All services — structured logs, correlation ID support |
+| Env management | `dotenv` | All services (ESM import pattern, per GymTrack precedent) |
+| Testing | `vitest` + `supertest` | All services |
+| API doc serving (optional) | `swagger-ui-express` | ESB gateway, serves merged OpenAPI specs |
 
 ---
 
@@ -36,16 +64,157 @@ create failure dependency. DLQ handles retries without blocking enrollment/payme
 
 ### ADR-004 — Aggregator Pattern for Student Dashboard
 **Decision:** `/api/v1/student/dashboard` is an ESB-owned aggregation endpoint.
-**Rationale:** Avoids chatty client (3 separate calls) without creating a service for a single UI need.
-ESB is the right place for this fan-out since it already orchestrates inter-service calls.
+**Rationale:** Avoids chatty client (3 separate calls) without creating a service for a single UI need. ESB is the right place for this fan-out since it already orchestrates inter-service calls.
 **Consequence:** ESB timeout (800ms) governs dashboard SLA. Partial data returned on timeout.
 
 ### ADR-005 — Saga for Enrollment Workflow
-**Decision:** Enrollment is a multi-step saga with compensation.
-Steps: check finance → check prerequisite → create enrollment → notify.
+**Decision:** Enrollment is a multi-step saga with compensation. Steps: check finance → check prerequisite → create enrollment → notify.
 **Rationale:** Enrollment touches two services (finance + academic). Distributed transaction
 without 2PC. Compensation on step 2 failure = skip enrollment, return error.
 **Consequence:** No rollback needed for step 3 failure (notification is fire-and-forget).
+
+### ADR-006 — Prisma over Drizzle for ORM
+**Decision:** Use Prisma as the ORM across all 5 REST services (notification-service has no DB).
+**Rationale:** Both Prisma and Drizzle are production-grade in 2026. Drizzle wins for edge/serverless deployment (Cloudflare Workers, Bun) thanks to near-zero bundle size. Prisma wins for classic Node.js + PostgreSQL backends due to ecosystem maturity, documentation depth, and lower onboarding cost — exactly NexusEdu's situation, since deployment target is traditional Node/Express, not edge runtime. As an academic deliverable under deadline pressure, Prisma's larger community (tutorials, Stack Overflow coverage, Prisma Studio for visual debugging) reduces time lost to tooling friction. Drizzle's main advantage — SQL-first control for teams with strong SQL fluency optimizing at scale — isn't the priority here.
+**Consequences:** Slightly larger bundle/cold-start than Drizzle (irrelevant — no edge deployment planned).`prisma generate` adds a build step but is a one-time cost per schema change, not per request.
+
+### ADR-007 — DESIGN.md as Separate File from ARCHITECTURE.md
+**Decision:** Visual design tokens and UI rationale live in root-level `DESIGN.md` (Google's open DESIGN.md spec), not inside ARCHITECTURE.md or CONVENTIONS.md. **Rationale:** Design tokens and architecture decisions have different audiences (frontend session vs backend/API session) and different update cadences (a color change shouldn't touch architecture docs, and vice versa). DESIGN.md is an emerging open standard (Apache 2.0, Google Labs) with its own tooling (lint, export to Tailwind config) that only works if the file is structured per spec and named `DESIGN.md`. Mixing it into another file would break that tooling compatibility and bloat context for agents that don't need design tokens for their current task. **Consequence:** Two top-level reference files exist (`AGENTS.md` for conventions, `DESIGN.md` for visual identity) instead of one. AGENTS.md's "Read First" table routes agents to the correct one.
+
+### ADR-008 — Monorepo with npm Workspaces
+**Decision:** Single repository, npm workspaces (`services/*`, `esb-gateway`, `frontend`), not
+separate repos per service.
+**Rationale:** This is a single-developer academic deliverable, not a multi-team production system.
+Six+ separate repos would mean six+ sets of CI config, six places to sync shared conventions, and a
+much harder submission/grading experience. A monorepo with workspaces keeps shared tooling (eslint,
+prettier, vitest config) defined once at the root while still letting each service have its own
+`package.json` and dependencies — the npm workspaces feature exists precisely for this shape.
+**Consequence:** `npm install` at the root installs all services' dependencies. Running a single
+service for local dev requires `npm run dev --workspace=services/auth-service` (or equivalent script).
+**Alternatives rejected:** Separate git repos per service — correct for a real multi-team
+organization, overkill and actively harmful to deliverable clarity for this assignment. Full repo
+tree is documented under Repository Structure below.
+
+### ADR-009 — Scope Extended to Full Implementation Beyond Assignment Minimum
+**Decision:** NexusEdu is built through to working code and a running database, not stopped at the
+design/documentation deliverables the assignment grades on.
+**Context:** The IAE Assignment 2 brief (see `docs/CONTEXT.md` and vault `Brief.md`) only requires
+design and documentation — 12 specific deliverables (OpenAPI specs, WSDL, ESB routing/transformation
+docs, diagrams). No working backend was required. Earlier versions of this AGENTS.md system reflected
+that minimum scope, which created a real contradiction once a concrete stack (Node/Express/Prisma/
+PostgreSQL/React) and repo structure were defined — those only make sense if code actually gets built.
+**Rationale:** Devin wants NexusEdu to function as a portfolio-quality project, not just a graded
+artifact that's abandoned after submission. The 12 graded deliverables remain unchanged and are
+still the priority for grading purposes, but every document in this system should now be written
+assuming the code will actually run, not merely be diagrammed.
+**Consequence:** `docs/CONTEXT.md`'s "Out of Scope" section was revised — database schema design and
+code implementation are no longer excluded. `vault/Progress.md` now tracks a separate "Implementation"
+checklist alongside the original "Deliverables" checklist, since these are two distinct tracks with
+different stakes (one is graded, one isn't).
+**Alternatives rejected:** Keep documentation-only scope and treat the stack/repo-structure decisions
+as purely aspirational/unbuilt — rejected because it leaves the AGENTS.md system internally
+contradictory (defining an ORM and folder structure nobody intends to use is worse than not defining
+one at all).
+
+---
+
+## Database Schema Isolation
+
+Single PostgreSQL instance (Supabase), but every service owns its own `schema` namespace.
+No service queries another service's schema directly — this is what makes "zero shared database"
+enforceable in practice without provisioning 5 separate database clusters (overkill for this assignment).
+
+| Service | Schema | Prisma `schema.prisma` location |
+|---------|--------|----------------------------------|
+| auth-service | `auth` | `services/auth-service/prisma/schema.prisma` |
+| academic-service | `academic` | `services/academic-service/prisma/schema.prisma` |
+| finance-service | `finance` | `services/finance-service/prisma/schema.prisma` |
+| library-service | `library` | `services/library-service/prisma/schema.prisma` |
+| student-affairs-service | `student_affairs` | `services/student-affairs-service/prisma/schema.prisma` |
+| notification-service | — (no DB; queue-only) | — |
+
+Each service has its own `DATABASE_URL` env var pointing to the same Postgres instance but scoped
+to its schema via `?schema=` connection parameter. This is a pragmatic middle ground: enforces
+logical isolation (the SOA principle the assignment grades on) without the infrastructure overhead
+of 5 separate database servers.
+
+---
+
+## Repository Structure
+
+**Monorepo, npm workspaces.** Not 6 separate repos — single-developer academic project, and a
+single repo is far simpler to submit/grade than coordinating 6+ repos. Each service is still
+independently deployable in principle (per ADR-001), the monorepo is purely a development/grading
+convenience and does not violate service isolation.
+
+```
+nexusedu-iae/
+├── AGENTS.md
+├── DESIGN.md
+├── package.json                  ← workspace root (npm workspaces: "services/*", "esb-gateway", "frontend")
+├── docker-compose.yml            ← local Postgres + RabbitMQ for dev
+├── .env.example
+│
+├── docs/
+│   ├── CONTEXT.md
+│   ├── ARCHITECTURE.md
+│   ├── CONVENTIONS.md
+│   ├── openapi/
+│   │   ├── auth-service.yaml
+│   │   ├── academic-service.yaml
+│   │   ├── finance-service.yaml
+│   │   ├── library-service.yaml
+│   │   └── student-affairs-service.yaml
+│   └── wsdl/
+│       └── StudentAttendanceLegacyService.wsdl
+│
+├── esb-gateway/                  ← :8000, the only externally-exposed entry point
+│   ├── src/
+│   │   ├── routes/               ← one file per service prefix (auth.routes.js, academic.routes.js, ...)
+│   │   ├── transformers/         ← XSLT-equivalent JSON↔XML mapping for student-affairs bridge
+│   │   ├── patterns/             ← aggregator.js (dashboard fan-out), saga.js (enrollment orchestration)
+│   │   ├── middleware/           ← auth-validate.js, rate-limit.js, correlation-id.js
+│   │   └── index.js
+│   └── package.json
+│
+├── services/
+│   ├── auth-service/             ← :8001
+│   │   ├── prisma/schema.prisma
+│   │   ├── src/
+│   │   │   ├── routes/
+│   │   │   ├── controllers/
+│   │   │   ├── services/         ← business logic, separate from controllers
+│   │   │   └── index.js
+│   │   └── package.json
+│   ├── academic-service/         ← :8002 (same internal shape as auth-service)
+│   ├── finance-service/          ← :8003
+│   ├── library-service/          ← :8004
+│   ├── student-affairs-service/  ← :8005, includes src/soap/ for SOAP server (strong-soap)
+│   └── notification-service/     ← :8006, no prisma/ (queue-only)
+│       ├── src/
+│       │   ├── consumers/        ← AMQP queue consumer
+│       │   └── templates/        ← email/sms/push template renderers
+│       └── package.json
+│
+└── frontend/                     ← React + Vite + Tailwind
+    ├── tailwind.config.js        ← tokens manually synced from DESIGN.md (or via `design.md export`)
+    ├── src/
+    │   ├── components/
+    │   ├── pages/
+    │   ├── hooks/
+    │   ├── lib/                  ← API client, calls ESB gateway only — never a service port directly
+    │   └── App.jsx
+    └── package.json
+```
+
+**Note on the vault:** the Obsidian second brain (`vault/` as referenced throughout this doc) is
+**not part of this repository**. It lives separately at `C:/second_brain/Projects/NexusEdu-IAE/`,
+matching the existing GymTrack convention of keeping the second brain outside the projects directory.
+Don't expect to find a `vault/` folder inside `nexusedu-iae/` — it's an external knowledge base, not
+a deliverable folder.
+
+Rationale for monorepo + npm workspaces over separate repos per service: see ADR-008 in
+Architecture Decision Records above.
 
 ---
 
