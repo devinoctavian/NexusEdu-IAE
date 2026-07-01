@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 
 export async function soapBridge(req, res) {
@@ -7,16 +6,16 @@ export async function soapBridge(req, res) {
   
   const builder = new XMLBuilder({ ignoreAttributes: false });
   // Construct the SOAP Envelope manually or using a library
-  const soapRequest = \`<?xml version="1.0" encoding="utf-8"?>
+  const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <RecordAttendance xmlns="http://legacy.nexusedu.id/attendance">
-      <studentNim>\${studentNim}</studentNim>
-      <courseId>\${courseId}</courseId>
-      <status>\${status}</status>
+      <studentNim>${studentNim}</studentNim>
+      <courseId>${courseId}</courseId>
+      <status>${status}</status>
     </RecordAttendance>
   </soap:Body>
-</soap:Envelope>\`;
+</soap:Envelope>`;
 
   try {
     const response = await fetch('http://localhost:8005/soap/attendance', {

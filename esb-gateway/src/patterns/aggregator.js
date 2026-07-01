@@ -1,4 +1,3 @@
-import fetch from 'node-fetch'; // Requires node-fetch (or native fetch in Node 18+)
 
 export async function dashboardAggregator(req, res) {
   // Aggregator pattern fan-out to Academic, Finance, and Library
@@ -7,9 +6,9 @@ export async function dashboardAggregator(req, res) {
   try {
     // Fire requests concurrently with a timeout constraint
     const [academicResponse, financeResponse, libraryResponse] = await Promise.allSettled([
-      fetch(\`http://localhost:8002/health\`, { signal: AbortSignal.timeout(800) }),
-      fetch(\`http://localhost:8003/health\`, { signal: AbortSignal.timeout(800) }),
-      fetch(\`http://localhost:8004/health\`, { signal: AbortSignal.timeout(800) })
+      fetch('http://localhost:8002/health', { signal: AbortSignal.timeout(800) }),
+      fetch('http://localhost:8003/health', { signal: AbortSignal.timeout(800) }),
+      fetch('http://localhost:8004/health', { signal: AbortSignal.timeout(800) })
     ]);
 
     const dashboardData = {

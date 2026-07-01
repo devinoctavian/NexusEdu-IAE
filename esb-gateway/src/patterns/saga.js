@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 
 export async function enrollmentSaga(req, res) {
   // Saga Pattern: Enroll -> Check Finance -> Enroll Academic -> Produce Message
@@ -6,7 +5,7 @@ export async function enrollmentSaga(req, res) {
 
   try {
     // 1. Finance Check (Local Transaction)
-    const financeRes = await fetch(\`http://localhost:8003/api/v1/finance/invoices/unpaid/\${studentNim}\`);
+    const financeRes = await fetch(`http://localhost:8003/api/v1/finance/invoices/unpaid/${studentNim}`);
     const financeData = await financeRes.json();
     
     if (financeRes.status !== 200) {

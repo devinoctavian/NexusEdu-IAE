@@ -20,8 +20,12 @@ export function authValidate(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'nexus_super_secret_key_change_in_prod');
     // Forward decoded user info as header to internal services
+    req.user = decoded;
     req.headers['x-user-id'] = decoded.id;
     req.headers['x-user-role'] = decoded.role;
+    if (decoded.nim) {
+      req.headers['x-user-nim'] = decoded.nim;
+    }
     next();
   } catch (error) {
     return res.status(401).json({
