@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ACADEMIC_DATABASE_URL")
+}
+
+model Course {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  name          String
+  credits       Int
+  semester      Int
+  capacity      Int
+  prerequisites String[]     // Array of course IDs
+  enrollments   Enrollment[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  studentNim String
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id])
+  semester   String   // e.g. "20251"
+  status     String   @default("ACTIVE") // ACTIVE, DROPPED
+  grade      Grade?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([studentNim, courseId, semester])
+  @@map("enrollments")
+}
+
+model Grade {
+  id           String     @id @default(uuid())
+  enrollmentId String     @unique
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  score        Float
+  gradeLetter  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("grades")
+}

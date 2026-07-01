@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("LIBRARY_DATABASE_URL")
+}
+
+model Book {
+  id              String   @id @default(uuid())
+  isbn            String   @unique
+  title           String
+  author          String
+  availableCopies Int      @default(1)
+  loans           Loan[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("books")
+}
+
+model Loan {
+  id         String   @id @default(uuid())
+  bookId     String
+  book       Book     @relation(fields: [bookId], references: [id])
+  studentNim String
+  loanDate   DateTime @default(now())
+  dueDate    DateTime
+  status     String   @default("ACTIVE") // ACTIVE, RETURNED, OVERDUE
+  fine       Fine?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("loans")
+}
+
+model Fine {
+  id        String   @id @default(uuid())
+  loanId    String   @unique
+  loan      Loan     @relation(fields: [loanId], references: [id])
+  amount    Float
+  status    String   @default("UNPAID") // UNPAID, PAID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fines")
+}

@@ -1,0 +1,24 @@
+{
+  "name": "esb-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6",
+    "fast-xml-parser": "^4.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^8.16.2",
+    "pino-http": "^8.5.1",
+    "dotenv": "^16.3.1",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.1.4",
+    "amqplib": "^0.10.3"
+  }
+}

@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  nim           String    @unique
+  name          String
+  email         String    @unique
+  password_hash String
+  role          String    @default("student") // student, lecturer, staff, admin
+  faculty       String?
+  major         String?
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  user_id      String
+  user         User     @relation(fields: [user_id], references: [id])
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  role       String   @unique
+  scopes     String[] // e.g. ["academic:read", "finance:read"]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("role_permissions")
+}

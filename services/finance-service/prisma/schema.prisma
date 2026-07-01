@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("FINANCE_DATABASE_URL")
+}
+
+model Invoice {
+  id         String    @id @default(uuid())
+  studentNim String
+  type       String    // SPP, REGISTRATION, MISC
+  semester   String
+  amount     Float
+  status     String    @default("UNPAID") // UNPAID, PAID, OVERDUE
+  dueDate    DateTime
+  payments   Payment[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  amountPaid    Float
+  paymentMethod String   // BANK_TRANSFER, VIRTUAL_ACCOUNT, CREDIT_CARD
+  status        String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  idempotencyKey String? @unique
+  timestamp     DateTime @default(now())
+
+  @@map("payments")
+}
+
+model Scholarship {
+  id          String   @id @default(uuid())
+  studentNim  String
+  name        String
+  grantAmount Float
+  period      String
+  status      String   @default("OPEN") // OPEN, CLOSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("scholarships")
+}

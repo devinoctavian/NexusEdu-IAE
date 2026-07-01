@@ -1,0 +1,23 @@
+{
+  "name": "nexusedu-iae",
+  "version": "1.0.0",
+  "description": "NexusEdu Integration Platform (IAE Assignment)",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "esb-gateway",
+    "frontend"
+  ],
+  "scripts": {
+    "start": "npm run start --workspaces --if-present",
+    "dev": "npm run dev --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspaces --if-present"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "supertest": "^6.3.3",
+    "prettier": "^3.0.3"
+  }
+}
