@@ -1,0 +1,34 @@
+graph TD
+    Client[Web/Mobile Client] -->|REST/JSON| ESB[ESB Gateway :8000]
+    
+    subgraph Services
+        ESB -->|Passthrough| Auth[auth-service :8001]
+        ESB -->|Passthrough| Academic[academic-service :8002]
+        ESB -->|Passthrough| Finance[finance-service :8003]
+        ESB -->|Passthrough| Library[library-service :8004]
+        
+        ESB -->|SOAP Bridge| StudentAffairs[student-affairs-service :8005]
+    end
+    
+    subgraph Async Messaging
+        ESB -.->|AMQP Publish| RabbitMQ[(RabbitMQ)]
+        RabbitMQ -.->|AMQP Consume| Notification[notification-service :8006]
+    end
+    
+    subgraph Data Layer
+        Auth --> DB[(PostgreSQL)]
+        Academic --> DB
+        Finance --> DB
+        Library --> DB
+        StudentAffairs --> DB
+    end
+    
+    classDef client fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef esb fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef service fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef db fill:#ffb,stroke:#333,stroke-width:2px;
+    
+    class Client client;
+    class ESB esb;
+    class Auth,Academic,Finance,Library,StudentAffairs,Notification service;
+    class DB,RabbitMQ db;

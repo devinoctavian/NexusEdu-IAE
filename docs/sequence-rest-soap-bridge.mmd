@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor Client
+    participant ESB as ESB Gateway
+    participant StudentAffairs as Student Affairs Service (SOAP)
+
+    Client->>ESB: GET /api/v1/student-affairs/attendance?nim=...&courseId=...
+    activate ESB
+    
+    Note over ESB: Content Router & Translator
+    ESB->>ESB: Map URL parameters to SOAP Request
+    ESB->>ESB: Transform JSON/Params to XML (xml2js)
+    
+    ESB->>StudentAffairs: POST /soap/StudentAttendanceLegacyService (XML)
+    activate StudentAffairs
+    StudentAffairs-->>ESB: 200 OK (SOAP XML Response)
+    deactivate StudentAffairs
+    
+    Note over ESB: Translate Response
+    ESB->>ESB: Parse XML to JSON (xml2js)
+    ESB->>ESB: Format to Standard API Envelope
+    
+    ESB-->>Client: 200 OK (JSON Response)
+    deactivate ESB

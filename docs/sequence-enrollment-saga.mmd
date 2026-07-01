@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor Student
+    participant ESB as ESB Gateway
+    participant Finance as Finance Service
+    participant Academic as Academic Service
+    participant RabbitMQ as Message Broker
+    participant Notif as Notification Service
+
+    Student->>ESB: POST /api/v1/academic/enrollments
+    activate ESB
+    
+    Note over ESB: Step 1: Check Finance (Prerequisite)
+    ESB->>Finance: GET /finance/invoices?status=unpaid
+    activate Finance
+    Finance-->>ESB: [] (No unpaid invoices)
+    deactivate Finance
+    
+    Note over ESB: Step 2: Create Enrollment
+    ESB->>Academic: POST /academic/enrollments
+    activate Academic
+    Academic-->>ESB: 201 Created (Enrollment Data)
+    deactivate Academic
+    
+    Note over ESB: Step 3: Async Notification
+    ESB-)RabbitMQ: Publish ENROLLMENT_CONFIRMED message
+    
+    ESB-->>Student: 201 Created (Success)
+    deactivate ESB
+    
+    Note over RabbitMQ,Notif: Asynchronous Process
+    RabbitMQ-)Notif: Consume message
+    activate Notif
+    Notif->>Notif: Send Email to Student
+    deactivate Notif

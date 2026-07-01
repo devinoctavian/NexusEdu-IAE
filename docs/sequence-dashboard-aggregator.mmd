@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor Student
+    participant ESB as ESB Gateway
+    participant Academic as Academic Service
+    participant Finance as Finance Service
+    participant Library as Library Service
+
+    Student->>ESB: GET /api/v1/student/dashboard
+    activate ESB
+    
+    Note over ESB: Fan-out requests (Parallel)
+    
+    par Fetch Enrollments
+        ESB->>Academic: GET /academic/enrollments
+        Academic-->>ESB: [Enrollment List]
+    and Fetch Invoices
+        ESB->>Finance: GET /finance/invoices?status=unpaid
+        Finance-->>ESB: [Unpaid Invoice List]
+    and Fetch Loans
+        ESB->>Library: GET /library/loans
+        Library-->>ESB: [Active Loan List]
+    end
+    
+    Note over ESB: Aggregate Data (Max 800ms timeout)
+    ESB->>ESB: Combine JSON responses
+    
+    ESB-->>Student: 200 OK (Aggregated Dashboard Data)
+    deactivate ESB
