@@ -1,0 +1,362 @@
+openapi: "3.1.0"
+info:
+  title: NexusEdu Academic Service API
+  version: "1.0.0"
+  description: |
+    Core academic domain. Read-heavy. Most list endpoints support ETags.
+  contact:
+    name: NexusEdu Team
+    email: dev@nexusedu.id
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: ESB Gateway (development)
+
+tags:
+  - name: academic
+    description: Mata kuliah, jadwal, KRS, nilai
+
+paths:
+  /academic/courses:
+    get:
+      tags:
+        - academic
+      summary: List mata kuliah
+      operationId: getCourses
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Course'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+
+  /academic/courses/{courseId}:
+    get:
+      tags:
+        - academic
+      summary: Detail + prasyarat mata kuliah
+      operationId: getCourseById
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Course'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /academic/schedule:
+    get:
+      tags:
+        - academic
+      summary: Jadwal semester aktif
+      operationId: getSchedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Course'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+  /academic/enrollments:
+    get:
+      tags:
+        - academic
+      summary: KRS aktif mahasiswa
+      operationId: getEnrollments
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Enrollment'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - academic
+      summary: Ambil KRS (Saga Orchestration)
+      description: Dikontrol ESB yang mengecek finance dan mem-publish AMQP message.
+      operationId: createEnrollment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, semester]
+              properties:
+                courseId:
+                  type: string
+                  format: uuid
+                semester:
+                  type: string
+                  example: "20251"
+      responses:
+        '201':
+          description: Enrollment dibuat
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Enrollment'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+        '409':
+          description: Conflict (Sudah terdaftar)
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validasi bisnis gagal (tunggakan, prasyarat, kuota penuh)
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/ErrorEnvelope'
+
+  /academic/enrollments/{id}:
+    delete:
+      tags:
+        - academic
+      summary: Drop mata kuliah
+      operationId: dropEnrollment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Drop berhasil
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /academic/grades:
+    get:
+      tags:
+        - academic
+      summary: Nilai semester aktif
+      operationId: getGrades
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Grade'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+  /academic/transcript:
+    get:
+      tags:
+        - academic
+      summary: Transkrip lengkap
+      operationId: getTranscript
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Transcript'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    Course:
+      type: object
+      required: [id, code, name, credits, semester, capacity, enrolled]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: "MKB3G4"
+        name:
+          type: string
+          example: "Integrasi Aplikasi Enterprise"
+        credits:
+          type: integer
+          example: 3
+        semester:
+          type: integer
+          example: 5
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+        capacity:
+          type: integer
+          example: 40
+        enrolled:
+          type: integer
+          example: 32
+
+    Enrollment:
+      type: object
+      required: [id, nim, courseId, courseCode, courseName, credits, semester, status, enrolledAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nim:
+          type: string
+        courseId:
+          type: string
+          format: uuid
+        courseCode:
+          type: string
+        courseName:
+          type: string
+        credits:
+          type: integer
+        semester:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED]
+        enrolledAt:
+          type: string
+          format: date-time
+
+    Grade:
+      type: object
+      required: [id, enrollmentId, score, gradeLetter]
+      properties:
+        id:
+          type: string
+          format: uuid
+        enrollmentId:
+          type: string
+          format: uuid
+        score:
+          type: number
+          example: 85.5
+        gradeLetter:
+          type: string
+          example: "A"
+
+    Transcript:
+      type: object
+      required: [nim, gpa, totalCredits, courses]
+      properties:
+        nim:
+          type: string
+        gpa:
+          type: number
+          example: 3.75
+        totalCredits:
+          type: integer
+          example: 120
+        courses:
+          type: array
+          items:
+            type: object
+            properties:
+              courseCode:
+                type: string
+              courseName:
+                type: string
+              credits:
+                type: integer
+              gradeLetter:
+                type: string
+            required: [courseCode, courseName, credits, gradeLetter]
+
+security:
+  - bearerAuth: []

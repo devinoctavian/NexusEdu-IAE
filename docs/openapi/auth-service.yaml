@@ -1,0 +1,356 @@
+openapi: "3.1.0"
+info:
+  title: NexusEdu Auth Service API
+  version: "1.0.0"
+  description: |
+    Single Sign-On gateway for NexusEdu.
+    Issues and validates JWTs for all internal services.
+  contact:
+    name: NexusEdu Team
+    email: dev@nexusedu.id
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: ESB Gateway (development)
+
+tags:
+  - name: authentication
+    description: Login, refresh, logout, validate
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - authentication
+      summary: Login dan dapatkan JWT
+      description: |
+        Validasi credential mahasiswa/dosen/staff.
+        Return access token (15 menit) dan refresh token (7 hari).
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              nim: "1301210001"
+              password: "secret123"
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - authentication
+      summary: Rotasi access token
+      description: Menggunakan refresh token untuk mendapatkan access token baru.
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - authentication
+      summary: Invalidasi session
+      description: Logout dengan menghapus atau invalidasi refresh token.
+      operationId: logout
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/validate:
+    get:
+      tags:
+        - authentication
+      summary: Token introspection
+      description: Mengecek validitas token dan mengembalikan klaim (digunakan internal oleh ESB atau validasi frontend).
+      operationId: validateToken
+      responses:
+        '200':
+          description: Token valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags:
+        - authentication
+      summary: Profil user aktif
+      description: Mendapatkan data identitas user saat ini.
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Profil didapatkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT issued oleh auth-service.
+        Payload: { sub, nim, role, scope[], exp, iss }
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [nim, password]
+      properties:
+        nim:
+          type: string
+          example: "1301210001"
+        password:
+          type: string
+          example: "secret123"
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                accessToken:
+                  type: string
+                refreshToken:
+                  type: string
+                expiresIn:
+                  type: integer
+                  example: 900
+              required: [accessToken, refreshToken, expiresIn]
+
+    UserProfile:
+      type: object
+      required: [id, nim, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nim:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [student, lecturer, staff, admin]
+        faculty:
+          type: string
+        major:
+          type: string
+
+    SuccessEnvelope:
+      type: object
+      required: [status, data, meta, errors]
+      properties:
+        status:
+          type: string
+          enum: [success]
+          example: success
+        data:
+          description: Response payload
+        meta:
+          $ref: '#/components/schemas/Meta'
+        errors:
+          type: array
+          items: {}
+          example: []
+
+    ErrorEnvelope:
+      type: object
+      required: [status, data, meta, errors]
+      properties:
+        status:
+          type: string
+          enum: [error]
+          example: error
+        data:
+          nullable: true
+          example: null
+        meta:
+          $ref: '#/components/schemas/MetaTimestampOnly'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorItem'
+
+    Meta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        hasNext:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-07-01T08:00:00+07:00"
+
+    MetaTimestampOnly:
+      type: object
+      required: [timestamp]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-07-01T08:00:00+07:00"
+
+    ErrorItem:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: SCREAMING_SNAKE_CASE error code
+          example: UNAUTHORIZED
+        field:
+          type: string
+          description: Field yang bermasalah (opsional)
+        message:
+          type: string
+          description: Human-readable error message
+
+  responses:
+    ValidationError:
+      description: Input validation gagal
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            data: null
+            meta:
+              timestamp: "2025-07-01T08:00:00+07:00"
+            errors:
+              - code: VALIDATION_ERROR
+                field: nim
+                message: format NIM tidak valid
+
+    Unauthorized:
+      description: JWT missing atau expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            data: null
+            meta:
+              timestamp: "2025-07-01T08:00:00+07:00"
+            errors:
+              - code: UNAUTHORIZED
+                message: Token tidak valid atau sudah expired
+
+    Forbidden:
+      description: Valid JWT, scope tidak cukup
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            data: null
+            meta:
+              timestamp: "2025-07-01T08:00:00+07:00"
+            errors:
+              - code: FORBIDDEN
+                message: Scope tidak cukup
+
+    NotFound:
+      description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            data: null
+            meta:
+              timestamp: "2025-07-01T08:00:00+07:00"
+            errors:
+              - code: NOT_FOUND
+                message: Resource tidak ditemukan
+
+    ServiceUnavailable:
+      description: Service downstream tidak bisa dijangkau
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            data: null
+            meta:
+              timestamp: "2025-07-01T08:00:00+07:00"
+            errors:
+              - code: SERVICE_UNAVAILABLE
+                message: Service tidak tersedia saat ini
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,271 @@
+openapi: "3.1.0"
+info:
+  title: NexusEdu Library Service API
+  version: "1.0.0"
+  description: Collection and loan management.
+  contact:
+    name: NexusEdu Team
+    email: dev@nexusedu.id
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: ESB Gateway (development)
+
+tags:
+  - name: library
+    description: Books, loans, and fines
+
+paths:
+  /library/catalog:
+    get:
+      tags:
+        - library
+      summary: Cari koleksi buku
+      operationId: getCatalog
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: available
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Book'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+  /library/catalog/{bookId}:
+    get:
+      tags:
+        - library
+      summary: Detail buku
+      operationId: getBookById
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Book'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /library/loans:
+    get:
+      tags:
+        - library
+      summary: Pinjaman aktif user
+      operationId: getLoans
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Loan'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - library
+      summary: Pinjam buku
+      operationId: createLoan
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId]
+              properties:
+                bookId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Loan'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '422':
+          description: BOOK_UNAVAILABLE
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/ErrorEnvelope'
+
+  /library/loans/{id}/return:
+    patch:
+      tags:
+        - library
+      summary: Kembalikan buku
+      operationId: returnLoan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /library/fines:
+    get:
+      tags:
+        - library
+      summary: List denda
+      operationId: getFines
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Fine'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    Book:
+      type: object
+      required: [id, isbn, title, author, availableCopies]
+      properties:
+        id:
+          type: string
+          format: uuid
+        isbn:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        availableCopies:
+          type: integer
+
+    Loan:
+      type: object
+      required: [id, bookId, bookTitle, loanDate, dueDate, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        bookId:
+          type: string
+          format: uuid
+        bookTitle:
+          type: string
+        loanDate:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, RETURNED, OVERDUE]
+
+    Fine:
+      type: object
+      required: [id, loanId, amount, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        loanId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [UNPAID, PAID]
+
+security:
+  - bearerAuth: []

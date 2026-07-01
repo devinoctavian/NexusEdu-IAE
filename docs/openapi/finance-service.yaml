@@ -1,0 +1,294 @@
+openapi: "3.1.0"
+info:
+  title: NexusEdu Finance Service API
+  version: "1.0.0"
+  description: |
+    Billing domain. All write ops require finance:write scope.
+  contact:
+    name: NexusEdu Team
+    email: dev@nexusedu.id
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: ESB Gateway (development)
+
+tags:
+  - name: finance
+    description: Invoices, payments, and scholarships
+
+paths:
+  /finance/invoices:
+    get:
+      tags:
+        - finance
+      summary: List tagihan
+      operationId: getInvoices
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [UNPAID, PAID, OVERDUE]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+
+  /finance/invoices/{id}:
+    get:
+      tags:
+        - finance
+      summary: Detail tagihan
+      operationId: getInvoiceById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /finance/payments:
+    post:
+      tags:
+        - finance
+      summary: Submit pembayaran SPP
+      operationId: submitPayment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoiceId, amount, method]
+              properties:
+                invoiceId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                method:
+                  type: string
+                  enum: [BANK_TRANSFER, VIRTUAL_ACCOUNT, CREDIT_CARD]
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+        '409':
+          description: Idempotency Key Conflict / Duplicate Payment
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/ErrorEnvelope'
+
+  /finance/payments/{id}:
+    get:
+      tags:
+        - finance
+      summary: Status pembayaran
+      operationId: getPaymentStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+
+  /finance/scholarships:
+    get:
+      tags:
+        - finance
+      summary: List beasiswa aktif
+      operationId: getScholarships
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Scholarship'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+  /finance/scholarships/apply:
+    post:
+      tags:
+        - finance
+      summary: Ajukan beasiswa
+      operationId: applyScholarship
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scholarshipId, documentUrl]
+              properties:
+                scholarshipId:
+                  type: string
+                  format: uuid
+                documentUrl:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+
+components:
+  schemas:
+    Invoice:
+      type: object
+      required: [id, type, semester, amount, status, dueDate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [SPP, REGISTRATION, MISC]
+        semester:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [UNPAID, PAID, OVERDUE]
+        dueDate:
+          type: string
+          format: date-time
+
+    Payment:
+      type: object
+      required: [id, invoiceId, amountPaid, paymentMethod, status, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoiceId:
+          type: string
+          format: uuid
+        amountPaid:
+          type: number
+        paymentMethod:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+        timestamp:
+          type: string
+          format: date-time
+
+    Scholarship:
+      type: object
+      required: [id, name, grantAmount, period, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        grantAmount:
+          type: number
+        period:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED]
+
+security:
+  - bearerAuth: []

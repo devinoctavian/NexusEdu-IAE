@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description
+  xmlns="http://www.w3.org/ns/wsdl"
+  xmlns:tns="http://nexusedu.id/student-affairs"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:soap="http://www.w3.org/ns/wsdl/soap"
+  targetNamespace="http://nexusedu.id/student-affairs">
+
+  <types>
+    <xs:schema targetNamespace="http://nexusedu.id/student-affairs" elementFormDefault="qualified">
+
+      <!-- GetAttendanceDetail types -->
+      <xs:element name="GetAttendanceDetailRequest">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="nim" type="xs:string"/>
+            <xs:element name="courseId" type="xs:string"/>
+            <xs:element name="semester" type="xs:string"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="GetAttendanceDetailResponse">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="nim" type="xs:string"/>
+            <xs:element name="courseId" type="xs:string"/>
+            <xs:element name="courseName" type="xs:string"/>
+            <xs:element name="semester" type="xs:string"/>
+            <xs:element name="totalMeetings" type="xs:int"/>
+            <xs:element name="attended" type="xs:int"/>
+            <xs:element name="percentage" type="xs:float"/>
+            <xs:element name="status" type="xs:string"/>
+            <xs:element name="details">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="meeting" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="date" type="xs:string"/>
+                        <xs:element name="status" type="xs:string"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <!-- GetViolationHistory types -->
+      <xs:element name="GetViolationHistoryRequest">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="nim" type="xs:string"/>
+            <xs:element name="includeResolved" type="xs:boolean" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="GetViolationHistoryResponse">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="nim" type="xs:string"/>
+            <xs:element name="totalViolations" type="xs:int"/>
+            <xs:element name="violations">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="violation" maxOccurs="unbounded" minOccurs="0">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="id" type="xs:string"/>
+                        <xs:element name="date" type="xs:string"/>
+                        <xs:element name="type" type="xs:string"/>
+                        <xs:element name="description" type="xs:string"/>
+                        <xs:element name="severity" type="xs:string"/>
+                        <xs:element name="status" type="xs:string"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <!-- SubmitAttendanceBatch types -->
+      <xs:element name="SubmitAttendanceBatchRequest">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="courseId" type="xs:string"/>
+            <xs:element name="meetingDate" type="xs:string"/>
+            <xs:element name="semester" type="xs:string"/>
+            <xs:element name="records">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="record" maxOccurs="unbounded">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="nim" type="xs:string"/>
+                        <xs:element name="status" type="xs:string"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="SubmitAttendanceBatchResponse">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="success" type="xs:boolean"/>
+            <xs:element name="recordsProcessed" type="xs:int"/>
+            <xs:element name="meetingId" type="xs:string"/>
+            <xs:element name="processedAt" type="xs:string"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+    </xs:schema>
+  </types>
+
+  <interface name="StudentAttendanceLegacyInterface">
+    <operation name="GetAttendanceDetail" pattern="http://www.w3.org/ns/wsdl/in-out">
+      <input messageLabel="In" element="tns:GetAttendanceDetailRequest"/>
+      <output messageLabel="Out" element="tns:GetAttendanceDetailResponse"/>
+    </operation>
+    <operation name="GetViolationHistory" pattern="http://www.w3.org/ns/wsdl/in-out">
+      <input messageLabel="In" element="tns:GetViolationHistoryRequest"/>
+      <output messageLabel="Out" element="tns:GetViolationHistoryResponse"/>
+    </operation>
+    <operation name="SubmitAttendanceBatch" pattern="http://www.w3.org/ns/wsdl/in-out">
+      <input messageLabel="In" element="tns:SubmitAttendanceBatchRequest"/>
+      <output messageLabel="Out" element="tns:SubmitAttendanceBatchResponse"/>
+    </operation>
+  </interface>
+
+  <binding name="StudentAttendanceSoapBinding"
+    interface="tns:StudentAttendanceLegacyInterface"
+    type="http://www.w3.org/ns/wsdl/soap"
+    soap:protocol="http://www.w3.org/2003/05/soap/bindings/HTTP/">
+    
+    <operation ref="tns:GetAttendanceDetail" soap:mep="http://www.w3.org/2003/05/soap/mep/request-response"/>
+    <operation ref="tns:GetViolationHistory" soap:mep="http://www.w3.org/2003/05/soap/mep/request-response"/>
+    <operation ref="tns:SubmitAttendanceBatch" soap:mep="http://www.w3.org/2003/05/soap/mep/request-response"/>
+  </binding>
+
+  <service name="StudentAttendanceLegacyService" interface="tns:StudentAttendanceLegacyInterface">
+    <endpoint name="StudentAttendanceLegacySoapEndpoint"
+      binding="tns:StudentAttendanceSoapBinding"
+      address="http://student-affairs:8005/soap/StudentAttendanceLegacyService"/>
+  </service>
+
+</description>

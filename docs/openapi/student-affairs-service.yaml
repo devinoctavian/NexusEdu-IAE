@@ -1,0 +1,231 @@
+openapi: "3.1.0"
+info:
+  title: NexusEdu Student Affairs Service API
+  version: "1.0.0"
+  description: |
+    Attendance and counseling domain.
+    Note: Some endpoints are bridged to SOAP by the ESB.
+  contact:
+    name: NexusEdu Team
+    email: dev@nexusedu.id
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: ESB Gateway (development)
+
+tags:
+  - name: affairs
+    description: Kehadiran, pelanggaran, konseling
+
+paths:
+  /student-affairs/attendance:
+    get:
+      tags:
+        - affairs
+      summary: Rekap kehadiran per matkul
+      description: |
+        Endpoint ini di-bridge oleh ESB menggunakan pola Content Router + XSLT
+        untuk memanggil legacy SOAP service `GetAttendanceDetail`.
+      operationId: getAttendance
+      parameters:
+        - name: nim
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: courseId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: semester
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AttendanceDetail'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: 'auth-service.yaml#/components/responses/NotFound'
+        '503':
+          $ref: 'auth-service.yaml#/components/responses/ServiceUnavailable'
+
+  /student-affairs/violations:
+    get:
+      tags:
+        - affairs
+      summary: Riwayat pelanggaran
+      description: |
+        Endpoint ini di-bridge oleh ESB menggunakan pola Content Router + XSLT
+        untuk memanggil legacy SOAP service `GetViolationHistory`.
+      operationId: getViolations
+      parameters:
+        - name: nim
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Violation'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '503':
+          $ref: 'auth-service.yaml#/components/responses/ServiceUnavailable'
+
+  /student-affairs/counseling/sessions:
+    get:
+      tags:
+        - affairs
+      summary: List sesi konseling
+      operationId: getCounselingSessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CounselingSession'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - affairs
+      summary: Buat jadwal konseling
+      operationId: scheduleCounseling
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, notes]
+              properties:
+                date:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: 'auth-service.yaml#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CounselingSession'
+        '401':
+          $ref: 'auth-service.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: 'auth-service.yaml#/components/responses/Forbidden'
+
+components:
+  schemas:
+    AttendanceDetail:
+      type: object
+      required: [nim, courseId, courseName, semester, totalMeetings, attended, percentage, status]
+      properties:
+        nim:
+          type: string
+        courseId:
+          type: string
+        courseName:
+          type: string
+        semester:
+          type: string
+        totalMeetings:
+          type: integer
+        attended:
+          type: integer
+        percentage:
+          type: number
+        status:
+          type: string
+          enum: [ELIGIBLE, NOT_ELIGIBLE]
+        meetings:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date-time
+              status:
+                type: string
+                enum: [PRESENT, ABSENT, EXCUSED, SICK]
+
+    Violation:
+      type: object
+      required: [id, date, type, description, severity, status]
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date-time
+        type:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        status:
+          type: string
+          enum: [ACTIVE, RESOLVED, APPEALING]
+
+    CounselingSession:
+      type: object
+      required: [id, studentNim, date, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentNim:
+          type: string
+        date:
+          type: string
+          format: date-time
+        counselorNotes:
+          type: string
+        status:
+          type: string
+          enum: [SCHEDULED, COMPLETED, CANCELLED]
+
+security:
+  - bearerAuth: []
