@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 export function authValidate(req, res, next) {
   // Allow passthrough for auth login route
-  if (req.path.startsWith('/api/v1/auth/login')) {
+  if (req.originalUrl.startsWith('/api/v1/auth/login')) {
     return next();
   }
 

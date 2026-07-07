@@ -10,14 +10,16 @@
   ],
   "scripts": {
     "start": "npm run start --workspaces --if-present",
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently -c \"auto\" \"npm run dev -w esb-gateway\" \"npm run dev -w frontend\" \"npm run dev -w services/academic-service\" \"npm run dev -w services/auth-service\" \"npm run dev -w services/finance-service\" \"npm run dev -w services/library-service\" \"npm run dev -w services/student-affairs-service\"",
     "test": "npm run test --workspaces --if-present",
-    "db:migrate": "npm run db:migrate --workspaces --if-present",
-    "db:generate": "npm run db:generate --workspaces --if-present"
+    "db:migrate": "dotenv -e .env -- npm run db:migrate --workspaces --if-present",
+    "db:generate": "dotenv -e .env -- npm run db:generate --workspaces --if-present"
   },
   "devDependencies": {
-    "vitest": "^1.0.0",
+    "concurrently": "^10.0.3",
+    "dotenv-cli": "^11.0.0",
+    "prettier": "^3.0.3",
     "supertest": "^6.3.3",
-    "prettier": "^3.0.3"
+    "vitest": "^1.0.0"
   }
 }

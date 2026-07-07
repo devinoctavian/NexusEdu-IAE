@@ -18,10 +18,24 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = async (nim, password) => {
-    // In a real app, fetch /api/v1/auth/login
-    // Here we just mock it
-    const mockToken = 'mock_jwt_token_for_' + nim;
-    setToken(mockToken);
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nim, password })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setToken(data.data.token);
+        setUser(data.data.user);
+        navigate('/dashboard');
+      } else {
+        alert('Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Network error during login');
+    }
   };
 
   const logout = () => {

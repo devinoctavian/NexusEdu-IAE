@@ -5,6 +5,9 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import pinoHttp from 'pino-http';
 import pino from 'pino';
 import 'dotenv/config';
+import swaggerUi from 'swagger-ui-express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { correlationIdMiddleware } from './middleware/correlation-id.js';
 import { globalLimiter } from './middleware/rate-limit.js';
@@ -28,6 +31,23 @@ app.use(globalLimiter);
 const jsonParser = express.json();
 
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'ESB Gateway' }));
+
+// ===== Swagger UI Documentation ===== //
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const swaggerOptions = {
+  explorer: true,
+  swaggerOptions: {
+    urls: [
+      { url: '/api/docs/specs/academic-service.yaml', name: 'Academic Service' },
+      { url: '/api/docs/specs/auth-service.yaml', name: 'Auth Service' },
+      { url: '/api/docs/specs/finance-service.yaml', name: 'Finance Service' },
+      { url: '/api/docs/specs/library-service.yaml', name: 'Library Service' },
+      { url: '/api/docs/specs/student-affairs-service.yaml', name: 'Student Affairs Service' }
+    ]
+  }
+};
+app.use('/api/docs/specs', express.static(path.join(__dirname, '../../docs/openapi')));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
 
 // ===== ESB Custom Patterns ===== //
 // Aggregator
